@@ -1,4 +1,4 @@
-# cropcomparator
+# Photo Crop Comparator
 
 This tool lets you compare 100% crops of multiple images (jpg). A typical use case is to compare image quality and sharpness of two or more photos of the same scene shot with different lenses or at different aperture values.
 Basic EXIF information about each file is displayed ([exif-js](https://github.com/exif-js/exif-js) is utilized).  
@@ -19,4 +19,4 @@ The tool is based on Javascript and runs offline in your browser, no server conn
 If you want to try it out before downloading, a demo is available here: https://keepcoding.ch/demo/cropcomparator
 
 
-![example](https://github.com/rdaforno/cropcomparator/cropcomparator_example.jpg "crop comparator example")
+![example](https://github.com/rdaforno/cropcomparator/blob/master/cropcomparator_example.jpg "crop comparator example")
