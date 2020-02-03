@@ -1,0 +1,431 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="description" content="share your files" />
+  <meta http-equiv="Content-Script-Type" content="text/javascript" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta http-equiv="cache-control" content="no-cache" />
+  <meta http-equiv="pragma" content="no-cache" />
+  <meta http-equiv="content-language" content="en" />
+  <title>-- Photo Crop Comparator --</title>
+  <style type="text/css">
+    body  { font: 12px verdana,arial,helvetica,sans-serif; color: #606060; text-align: left; background-color: #ffffff; }
+    img { border: 0px }
+    a { text-decoration: none; color: #606060 }
+    a:hover { color: #f0d020; text-decoration: underline; }
+    input[type=button] { float: left; background-color: #606060; color: white; padding: 5px 12px; margin-left: 0px; margin-right: 6px; margin-bottom: 10px; border: none; border-radius: 5px; cursor: pointer; }
+    input[type=button]:hover { background-color: #45a049; }
+    input[type=button]:focus { outline-width: 0; }
+    input[type=file] { padding: 60px; width: 100%; vertical-align: middle; text-align: center; color: #fff; opacity: 0.0; cursor: pointer; }
+    input[type=file]:focus { outline-width: 0; }
+    #container { position: relative; width: 90%; text-align: left; }
+    #fileselect { position: relative; width: 100%; max-width: 1000px; float: left; height: 60px; overflow: hidden; margin-top: 10px; margin-bottom: 10px; border: 2px dashed #606060; vertical-align: top; text-align: center; }
+    #fileselect:hover { background-color: #f4f4f4; }
+    #fileselect[drop-active=true] { background-color: #fffcf4; }
+    #fileselecttext { position: absolute; top: 40%; width: 100%; text-align: center; }
+    #filethumbs { position: relative; clear: both; }
+    #fileinfo { float: left; clear: both; margin-top: 10px; margin-bottom: 20px; }
+    #overview { position: relative; float: left; clear: both; }
+    #imgcrops { position: relative; float: left; clear: both; margin-bottom: 100px; }
+    #cropselector { display:none; float: left; clear: both; }
+    .thumb { height: 75px; margin: 10px 5px 0 0; cursor: not-allowed; }
+    .imginfo { float: left; padding: 5px; padding-top: 50px; line-height: 200%; }
+    .imgcrop { float: left; margin-right: 10px; }
+    .crops { float: left; clear: both; margin-bottom: 10px; }
+    .frame { position: absolute; display: none; left: 0px; top: 0px; border: 0px solid #606060; padding: 5px; color: #606060; font-size: 18px; font-weight: bold; background-color: #ffffff; opacity: 0.6; }
+    .frame:hover { cursor: move }
+    .noselect { -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -o-user-select: none; user-select: none; }
+    .adjustable { cursor: move }
+  </style>
+  <script type="text/javascript" src="jquery-3.4.1.min.js"></script>  <!-- include jQuery library -->
+  <script type="text/javascript" src="exif.js"></script>      <!-- include exif-js library (https://github.com/exif-js/exif-js) -->
+  <script type="text/javascript">
+  <!--
+    // --------------------------------------------------------------------------------------
+    // Photo Crop Comparator
+    // (c) 2020 Reto Da Forno | https://github.com/rdaforno/cropcomparator
+    // --------------------------------------------------------------------------------------
+    
+    // --- config ---
+    
+    var imagewidth = 1000;   // in pixel
+    var cropsize   = 300;    // in pixel
+    
+    
+    // --- globals (state) ---
+    
+    var imglist = [];
+    var imageheight = 0;
+    var selframe = 1;
+    var framesize = 0;
+    var clickstartpos = [];
+    
+    
+    // --- functions ---
+    
+    function waitForElement(elemId, callback) {
+      if (document.getElementById(elemId)) { callback(); }
+      else { setTimeout(function() { waitForElement(elemId, callback); }, 100); }
+    };
+    
+    function getFileNames() {
+      return imglist.map(function(i) { return i.title; });
+    }
+    
+    function getImgIndexFromName(name) {
+      for (var i = 0; i < imglist.length; i++) {
+        if (imglist[i].title == name) {
+          return i;
+        }
+      }
+      return -1;
+    }
+    
+    function getRelFramePos(frame) {
+      if (imageheight > 0 && frame > 0 && frame < 4) {
+        var framepos = $('#frame' + frame).offset();
+        var overviewpos = $('#overviewimg').offset();
+        return [ (framepos.left - overviewpos.left + framesize / 2) / imagewidth, (framepos.top - overviewpos.top + framesize / 2) / imageheight ];
+      }
+    }
+
+    function moveFrameBegin(num) {
+      selframe = num;
+      var pos = $('#overviewimg').offset();
+      var framepos = $('#frame' + selframe).offset();
+      // calculate distance to top left corner of the frame
+      var diffx = pos.left + (event.clientX - framepos.left);
+      var diffy = pos.top + (event.clientY - framepos.top);
+      clickstartpos = [diffx, diffy];
+    }
+    
+    function moveFrameEnd() {
+      if (clickstartpos.length > 0) {
+        clickstartpos = [];
+        var ofs = $('#frame' + selframe).offset();
+        var pos = [Math.round(ofs.left + framesize / 2), Math.round(ofs.top + framesize / 2)];
+        loadCrop(pos);
+      }
+    }
+    
+    function moveFrame() {
+      if (clickstartpos.length > 0) {
+        x = event.clientX - clickstartpos[0];
+        y = event.clientY - clickstartpos[1];
+        $('#frame' + selframe).css('left', Math.min(Math.max(0, x), imagewidth - framesize));
+        $('#frame' + selframe).css('top', Math.min(Math.max(0, y), imageheight - framesize));
+      }
+    }
+    
+    function selectCrop(num) {
+      if (num > 0 && num < 4) {
+        selframe = num;
+        $('#frame' + num).show();
+      }
+    }
+    
+    function adjustCropBegin() {
+      clickstartpos = [event.clientX, event.clientY];
+    }
+    
+    function adjustCropEnd(imgname) {
+      if (imgname !== undefined && clickstartpos.length > 0) {
+        diff = [event.clientX - clickstartpos[0], event.clientY - clickstartpos[1]];
+        var idx = getImgIndexFromName(imgname);
+        if (idx < 0) {
+          alert("failed to retrieve image index");
+        } else {
+          imglist[idx].offsetX += diff[0];
+          imglist[idx].offsetY += diff[1];
+          // update all 3 crops of this image
+          for (var i = 1; i < 4; i++) {
+            elem = document.getElementById("cv" + i + imgname);
+            if (elem.title !== "") {
+              // get frame position and calculate relative crop position
+              var posrel = getRelFramePos(i);
+              createCrop(posrel[0], posrel[1], idx, i);
+            }
+          }
+        }
+      }
+      clickstartpos = [];
+    }
+    
+    function displayExif(imgidx) {
+      if (imglist.length == 0) return;
+      if (imgidx === undefined) {
+        EXIF.getData(imglist[0], function() {
+          var output = "";
+          //console.log(EXIF.getAllTags(this));
+          var fl = EXIF.getTag(this, "FocalLengthIn35mmFilm");
+          if (fl !== undefined) {
+            output += fl + "mm  ";
+          }
+          var fstop = EXIF.getTag(this, "FNumber");
+          if (fstop !== undefined) {
+            output += "F" + fstop + "  ";
+          }
+          var shutter = EXIF.getTag(this, "ExposureTime");
+          if (shutter !== undefined) {
+            if (shutter < 1) {
+              shutter = "1/" + (1 / shutter);
+            }
+            output += shutter + "s  ";
+          }
+          var iso = EXIF.getTag(this, "ISOSpeedRatings");
+          if (fstop !== undefined) {
+            output += "ISO" + iso;
+          }
+          var make = EXIF.getTag(this, "Make");
+          if (make !== undefined) {
+            output += ", " + make;
+          }
+          var model = EXIF.getTag(this, "Model");
+          if (model !== undefined) {
+            output += " " + model;
+          }
+          var lens = EXIF.getTag(this, "undefined");
+          if (lens) {
+          }
+          if (lens !== undefined) {
+            output += " + " + lens + "  ";
+          }
+          var width = EXIF.getTag(this, "PixelXDimension");
+          var height = EXIF.getTag(this, "PixelYDimension");
+          if (width !== undefined && height != undefined) {
+            output += " (" + width + "x" + height + ") ";
+          }
+          $('#fileinfo').text(output);
+        });
+      } else if (imgidx < imglist.length) {
+        EXIF.getData(imglist[imgidx], function() {
+          // basic EXIF
+          var fl = EXIF.getTag(this, "FocalLengthIn35mmFilm");
+          var fstop = EXIF.getTag(this, "FNumber");
+          var shutter = EXIF.getTag(this, "ExposureTime");
+          if (shutter < 1) {
+            shutter = "1/" + (1 / shutter);
+          }
+          var iso = EXIF.getTag(this, "ISOSpeedRatings");
+          if (fl !== undefined && fstop !== undefined && shutter !== undefined && iso !== undefined) {
+            document.getElementById('info' + imglist[imgidx].title).innerHTML = ("F" + fstop + "<br />" + fl + "mm<br />" + shutter + "s<br />ISO" + iso);
+          }
+        });
+      }
+    }
+    
+    // process the selected files
+    function processFiles() {
+      var filelist = $('#fileinput').prop('files');
+      for (file of filelist) {
+        // load the image
+        var reader = new FileReader();
+        reader.onload = (function(f) {
+          return function(e) {
+            // check file type
+            if (!f.type.match('image.*')) {
+              alert("file " + f.name + " is not an image");
+              return;
+            }
+            var image = new Image();
+            image.onload = function() { imageLoaded(this); };
+            image.title = escape(f.name);
+            image.offsetX = 0;
+            image.offsetY = 0;
+            image.src = e.target.result;
+          };
+        })(file);
+        reader.readAsDataURL(file);
+      }
+      $('#fileinput').val("");  // reset file input field
+    }
+    
+    // load the crop at the given absolute position [x, y]
+    function loadCrop(pos) {
+      if (pos === undefined || pos.length == 0) {
+        pos = [event.clientX + (document.documentElement.scrollLeft ? document.documentElement.scrollLeft : document.body.scrollLeft), event.clientY + (document.documentElement.scrollTop ? document.documentElement.scrollTop : document.body.scrollTop)];
+      }
+      var imgofs = $('#overviewimg').offset();
+      var x = pos[0] - imgofs.left;
+      var y = pos[1] - imgofs.top;
+      xrel = x / imagewidth;
+      yrel = y / imageheight;
+      // move the frame
+      $('#frame' + selframe).css('left', Math.min(Math.max(0, x - framesize / 2), imagewidth - framesize));
+      $('#frame' + selframe).css('top', Math.min(Math.max(0, y - framesize / 2), imageheight - framesize));
+      // update crops
+      for (var i = 0; i < imglist.length; i++) {
+        createCrop(xrel, yrel, i);
+      }
+    }
+    
+    // show the overview image (first image in imglist)
+    function displayImage() {
+      if (imglist.length > 0) {
+        displayExif();
+        $('#overviewimg').width(imagewidth);
+        $('#overviewimg').attr('src', imglist[0].src);
+        // calculate frame size
+        framesize = Math.round(imagewidth * cropsize / imglist[0].width);
+        imageheight = Math.round((imagewidth / imglist[0].width) * imglist[0].height);
+        // reset frame size and position
+        $('.frame').width(framesize);
+        $('.frame').height(framesize);
+        $('.frame').css('left', 0);
+        $('.frame').css('top', 0);
+        $('#frame1').show();
+        $('#cropselector').slideDown();
+      }
+    }
+    
+    // 'image loaded' event
+    function imageLoaded(img) {
+      if (img === undefined) { return; }
+      // perform a few checks and then add it to the list and create the necessery html elements
+      if (imglist.length > 0) {
+        // check if name exists
+        var fn = getFileNames();
+        if (fn.indexOf(img.title) >= 0) {
+          alert("image " + img.title + " already exists");
+          return;   // abort
+        }
+        // check resolution (must match the resolution of the first file)
+        if (imglist[0].width != img.width || imglist[0].height != img.height) {
+          alert("image " + img.title + " does not match the resolution");
+          img = null;
+          return;   // abort
+        }
+      }
+      // add image to the list
+      imglist.push(img);
+      // create html elements
+      $('#filethumbs').append('<img class="thumb" src="' + img.src + '" title="' + img.title + '" id="img' + img.title + '" onclick="if (confirm(\'remove?\')) removeImage(this);" />');
+      $('#imgcrops').append('<div id="crops' + img.title + '" class="crops">' +
+                            '<canvas id="cv1' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="imgcrop adjustable" onmousedown="adjustCropBegin()" onmouseup="adjustCropEnd(\'' + img.title + '\')" onmouseleave="adjustCropEnd()" />' +
+                            '<canvas id="cv2' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="imgcrop" />' +
+                            '<canvas id="cv3' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="imgcrop" />' +
+                            '<div id="info' + img.title + '" class="imginfo"></div>' +
+                            '</div>');
+      displayExif(imglist.length - 1);
+      // update list of filenames
+      $('#fileselecttext').text(getFileNames().join(", "));
+      // display image if first
+      if (imglist.length == 1) {
+        displayImage();
+      }
+    }
+    
+    // creates a square crop
+    function createCrop(x, y, imgidx, frame) {
+      // parameter check
+      if (frame === undefined) {
+        frame = selframe;
+      }
+      if (x < 0 || y < 0 || x > 1 || y > 1 || imgidx < 0 || imgidx >= imglist.length) {
+        return;
+      }
+      if (cropsize < 32 || cropsize > imglist[imgidx].width || cropsize > imglist[imgidx].height) {
+        return;
+      }
+      // calculate absolute pixel position and make sure it is within the image frame
+      var px = Math.round(x * imglist[imgidx].width - (cropsize / 2) - imglist[imgidx].offsetX);
+      var py = Math.round(y * imglist[imgidx].height - (cropsize / 2) - imglist[imgidx].offsetY);
+      if (px < 0) {
+        px = 0;
+      } else if ((px + cropsize) > imglist[imgidx].width) {
+        px = imglist[imgidx].width - cropsize;
+      }
+      if (py < 0) {
+        py = 0;
+      } else if ((py + cropsize) > imglist[imgidx].height) {
+        py = imglist[imgidx].height - cropsize;
+      }
+      // get the canvas and draw
+      const cropdesignators = ['A', 'B', 'C'];
+      elem = document.getElementById("cv" + frame + imglist[imgidx].title);
+      elem.title = "crop " + cropdesignators[frame];
+      const ctx = elem.getContext('2d');
+      ctx.drawImage(imglist[imgidx], px, py, cropsize, cropsize, 0, 0, cropsize, cropsize);
+    }
+    
+    // remove an image from the list
+    function removeImage(img) {
+      var idx = getImgIndexFromName(img.title);
+      if (idx >= 0) {
+        // remove all 3 canvas
+        document.getElementById('crops' + imglist[idx].title).remove();        
+        // remove from list
+        imglist[idx] = null;
+        imglist.splice(idx, 1);
+        // was it the first element?
+        if (idx == 0) {
+          $('#fileinfo').empty();             // clear file info box
+          $('#overviewimg').attr('src', '');  // remove overview image
+          $('.frame').hide();                 // hide the crop selection frames
+          $('#cropselector').fadeOut();       // hide the crop selection buttons
+          framesize = 0;
+          imageheight = 0;
+          // show the next image in the list (if any)
+          displayImage();
+        }
+        // update the list of filenames
+        if (imglist.length == 0) {
+          $('#fileselecttext').text("drop files here");
+        } else {
+          $('#fileselecttext').text(getFileNames().join(", "));
+        }
+      }
+      // remove html element
+      img.remove();
+    }
+    
+    // register global event listeners to prevent accidental drag select and drag&drop
+    $("img").mousedown(function() { return false; });
+    window.ondragstart = function() { event.preventDefault(); }
+    window.ondragover = function(e) {
+      if (e.target.id != "fileinput") {
+        e.preventDefault();
+        e.dataTransfer.effectAllowed = "none";
+        e.dataTransfer.dropEffect = "none";
+      }
+    };
+    window.ondrop = function(e) {
+      if (e.target.id != "fileinput") {
+        e.preventDefault();
+        e.dataTransfer.effectAllowed = "none";
+        e.dataTransfer.dropEffect = "none";
+      }
+    };
+  //-->
+  </script>
+</head>
+<body>
+  <center>
+  <div id="container"> 
+    <br />
+    <div id="fileselect" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active'); console.log(event.dataTransfer.files);">
+      <div id="fileselecttext">drop files here</div>
+      <input type="file" multiple name="files[]" id="fileinput" accept=".jpg" onchange="processFiles();" />
+    </div><br />
+    <div id="filethumbs"></div><br /><br />
+    <div id="cropselector">
+      <input type="button" id="selectbutton" value="A" onclick="selectCrop(1)" />
+      <input type="button" id="selectbutton" value="B" onclick="selectCrop(2)" />
+      <input type="button" id="selectbutton" value="C" onclick="selectCrop(3)" />
+    </div>
+    <div id="overview">
+      <img id="overviewimg" class="noselect" src="" onload="" onclick="loadCrop()" />
+      <div class="frame noselect" id="frame1" onmousedown="moveFrameBegin(1)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()">A</div>
+      <div class="frame noselect" id="frame2" onmousedown="moveFrameBegin(2)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()">B</div>
+      <div class="frame noselect" id="frame3" onmousedown="moveFrameBegin(3)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()">C</div>
+    </div>
+    <div id="fileinfo"></div><br /><br />
+    <div id="imgcrops"></div><br /><br />
+    <br />
+  </div>
+  </center>
+</body>
+</html>
