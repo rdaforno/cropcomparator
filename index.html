@@ -12,10 +12,8 @@
   <meta http-equiv="content-language" content="en" />
   <title>-- Photo Crop Comparator --</title>
   <style type="text/css">
-    body  { font: 12px verdana,arial,helvetica,sans-serif; color: #606060; text-align: left; background-color: #ffffff; }
+    body { font: 12px verdana,arial,helvetica,sans-serif; color: #606060; text-align: left; background-color: #ffffff; }
     img { border: 0px }
-    a { text-decoration: none; color: #606060 }
-    a:hover { color: #f0d020; text-decoration: underline; }
     input[type=button] { float: left; background-color: #606060; color: white; padding: 5px 12px; margin-left: 0px; margin-right: 6px; margin-bottom: 10px; border: none; border-radius: 5px; cursor: pointer; }
     input[type=button]:hover { background-color: #45a049; }
     input[type=button]:focus { outline-width: 0; }
@@ -29,16 +27,17 @@
     #filethumbs { position: relative; clear: both; }
     #fileinfo { float: left; clear: both; margin-top: 10px; margin-bottom: 20px; }
     #overview { position: relative; float: left; clear: both; }
-    #imgcrops { position: relative; float: left; clear: both; margin-bottom: 100px; }
+    #cropcontainer { position: relative; float: left; clear: both; }
     #cropselector { display:none; float: left; clear: both; }
+    #cropdesignator { display:none; float: left; clear: both; margin-bottom: 100px; }
     .thumb { height: 75px; margin: 10px 5px 0 0; cursor: not-allowed; }
-    .imginfo { float: left; padding: 5px; padding-top: 50px; line-height: 200%; }
-    .imgcrop { float: left; margin-right: 10px; }
-    .crops { float: left; clear: both; margin-bottom: 10px; }
-    .frame { position: absolute; display: none; left: 0px; top: 0px; border: 0px solid #606060; padding: 5px; color: #606060; font-size: 18px; font-weight: bold; background-color: #ffffff; opacity: 0.6; }
+    .cropinfo { float: left; padding-left: 5px; padding-top: 50px; line-height: 200%; }
+    .cropimg { float: left; }
+    .croprow { float: left; clear: both; }
+    .frame { position: absolute; display: none; left: 0px; top: 0px; border: 0px solid #606060; color: #606060; font-size: 18px; font-weight: bold; background-color: #ffffff; opacity: 0.6; text-align: center }
     .frame:hover { cursor: move }
     .noselect { -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -o-user-select: none; user-select: none; }
-    .adjustable { cursor: move }
+    .moveable { cursor: move }
   </style>
   <script type="text/javascript" src="jquery-3.4.1.min.js"></script>  <!-- include jQuery library -->
   <script type="text/javascript" src="exif.js"></script>      <!-- include exif-js library (https://github.com/exif-js/exif-js) -->
@@ -46,13 +45,16 @@
   <!--
     // --------------------------------------------------------------------------------------
     // Photo Crop Comparator
-    // (c) 2020 Reto Da Forno | https://github.com/rdaforno/cropcomparator
+    // (c) 2020 rdaforno | https://github.com/rdaforno/cropcomparator
     // --------------------------------------------------------------------------------------
     
     // --- config ---
     
-    var imagewidth = 1000;   // in pixel
-    var cropsize   = 300;    // in pixel
+    const imagewidth      = 1000;             // size of the overview image, in pixel
+    const cropsize        = 300;              // size of the square crops, in pixel
+    const cropmargin      = 10;               // margin between the crops, in pixel
+    const cropdesignators = ['A', 'B', 'C'];  // displayed designators for crop selection frames
+    const rotate          = true;             // rotate inverted images by 180°
     
     
     // --- globals (state) ---
@@ -65,11 +67,6 @@
     
     
     // --- functions ---
-    
-    function waitForElement(elemId, callback) {
-      if (document.getElementById(elemId)) { callback(); }
-      else { setTimeout(function() { waitForElement(elemId, callback); }, 100); }
-    };
     
     function getFileNames() {
       return imglist.map(function(i) { return i.title; });
@@ -154,93 +151,69 @@
       clickstartpos = [];
     }
     
-    function displayExif(imgidx) {
-      if (imglist.length == 0) return;
-      if (imgidx === undefined) {
-        EXIF.getData(imglist[0], function() {
-          var output = "";
-          //console.log(EXIF.getAllTags(this));
-          var fl = EXIF.getTag(this, "FocalLengthIn35mmFilm");
-          if (fl !== undefined) {
-            output += fl + "mm  ";
-          }
-          var fstop = EXIF.getTag(this, "FNumber");
-          if (fstop !== undefined) {
-            output += "F" + fstop + "  ";
-          }
-          var shutter = EXIF.getTag(this, "ExposureTime");
-          if (shutter !== undefined) {
-            if (shutter < 1) {
-              shutter = "1/" + (1 / shutter);
-            }
-            output += shutter + "s  ";
-          }
-          var iso = EXIF.getTag(this, "ISOSpeedRatings");
-          if (fstop !== undefined) {
-            output += "ISO" + iso;
-          }
-          var make = EXIF.getTag(this, "Make");
-          if (make !== undefined) {
-            output += ", " + make;
-          }
-          var model = EXIF.getTag(this, "Model");
-          if (model !== undefined) {
-            output += " " + model;
-          }
-          var lens = EXIF.getTag(this, "undefined");
-          if (lens) {
-          }
-          if (lens !== undefined) {
-            output += " + " + lens + "  ";
-          }
-          var width = EXIF.getTag(this, "PixelXDimension");
-          var height = EXIF.getTag(this, "PixelYDimension");
-          if (width !== undefined && height != undefined) {
-            output += " (" + width + "x" + height + ") ";
-          }
-          $('#fileinfo').text(output);
-        });
-      } else if (imgidx < imglist.length) {
-        EXIF.getData(imglist[imgidx], function() {
-          // basic EXIF
-          var fl = EXIF.getTag(this, "FocalLengthIn35mmFilm");
-          var fstop = EXIF.getTag(this, "FNumber");
-          var shutter = EXIF.getTag(this, "ExposureTime");
-          if (shutter < 1) {
-            shutter = "1/" + (1 / shutter);
-          }
-          var iso = EXIF.getTag(this, "ISOSpeedRatings");
-          if (fl !== undefined && fstop !== undefined && shutter !== undefined && iso !== undefined) {
-            document.getElementById('info' + imglist[imgidx].title).innerHTML = ("F" + fstop + "<br />" + fl + "mm<br />" + shutter + "s<br />ISO" + iso);
-          }
-        });
+    function loadExif(img) {
+      EXIF.getData(img, function() {
+        img.exif = EXIF.getAllTags(this);
+        //console.log(EXIF.getAllTags(this));
+        document.getElementById('info' + img.title).innerHTML = img.title.slice(0, -4) + "<br />" + (getExposureInfo(img).join("<br />"));
+      });
+    }
+    
+    // returns an array with basic exposure info
+    function getExposureInfo(img) {
+      var output = [];
+      if (img.exif.FocalLength !== undefined)     { output.push(img.exif.FocalLength + "mm"); }   // alternative: FocalLengthIn35mmFilm
+      if (img.exif.FNumber !== undefined)         { output.push("F" + img.exif.FNumber); }
+      if (img.exif.ExposureTime !== undefined)    { output.push(((img.exif.ExposureTime < 1) ? ("1/" + (1 / img.exif.ExposureTime)) : (img.exif.ExposureTime)) + "s"); }
+      if (img.exif.ISOSpeedRatings !== undefined) { output.push("ISO" + img.exif.ISOSpeedRatings); }
+      return output;
+    }
+    
+    function getExifInfoString(img) {
+      var output = getExposureInfo(img);
+      var make = img.exif.Make;
+      if (make !== undefined) {
+        make = make.split(' ')[0];
+        if (img.exif.Model !== undefined) {
+          make += " " + img.exif.Model;
+        }
+        output.push(make);
       }
+      // the lens name is apparently stored as 'undefined'
+      if (img.exif.undefined !== undefined)       { output.push(img.exif.undefined.replace(/[^\x20-\xFF]/g, '').replace('|', ' ')); }  // remove invalid chars
+      if (img.exif.PixelXDimension !== undefined) { output.push(img.exif.PixelXDimension + "x" + img.exif.PixelYDimension); }
+      return output.join(" | ");
     }
     
     // process the selected files
     function processFiles() {
+      $('#fileselecttext').html('<img src="data:image/gif;base64,R0lGODlhEAALAPQAAPT09AAAANHR0cfHx+Dg4AUFBQAAACwsLHx8fFxcXLKysiAgIEdHR4SEhGBgYLa2tiQkJAMDA0pKStzc3M/Pz+rq6jU1NdPT0+jo6K6urpmZmcLCwuTk5AAAAAAAAAAAACH+GkNyZWF0ZWQgd2l0aCBhamF4bG9hZC5pbmZvACH5BAALAAAAIf8LTkVUU0NBUEUyLjADAQAAACwAAAAAEAALAAAFLSAgjmRpnqSgCuLKAq5AEIM4zDVw03ve27ifDgfkEYe04kDIDC5zrtYKRa2WQgAh+QQACwABACwAAAAAEAALAAAFJGBhGAVgnqhpHIeRvsDawqns0qeN5+y967tYLyicBYE7EYkYAgAh+QQACwACACwAAAAAEAALAAAFNiAgjothLOOIJAkiGgxjpGKiKMkbz7SN6zIawJcDwIK9W/HISxGBzdHTuBNOmcJVCyoUlk7CEAAh+QQACwADACwAAAAAEAALAAAFNSAgjqQIRRFUAo3jNGIkSdHqPI8Tz3V55zuaDacDyIQ+YrBH+hWPzJFzOQQaeavWi7oqnVIhACH5BAALAAQALAAAAAAQAAsAAAUyICCOZGme1rJY5kRRk7hI0mJSVUXJtF3iOl7tltsBZsNfUegjAY3I5sgFY55KqdX1GgIAIfkEAAsABQAsAAAAABAACwAABTcgII5kaZ4kcV2EqLJipmnZhWGXaOOitm2aXQ4g7P2Ct2ER4AMul00kj5g0Al8tADY2y6C+4FIIACH5BAALAAYALAAAAAAQAAsAAAUvICCOZGme5ERRk6iy7qpyHCVStA3gNa/7txxwlwv2isSacYUc+l4tADQGQ1mvpBAAIfkEAAsABwAsAAAAABAACwAABS8gII5kaZ7kRFGTqLLuqnIcJVK0DeA1r/u3HHCXC/aKxJpxhRz6Xi0ANAZDWa+kEAA7AAAAAAAAAAAA" />');  // or use: .text('loading...')
       var filelist = $('#fileinput').prop('files');
       for (file of filelist) {
-        // load the image
-        var reader = new FileReader();
-        reader.onload = (function(f) {
-          return function(e) {
-            // check file type
-            if (!f.type.match('image.*')) {
-              alert("file " + f.name + " is not an image");
-              return;
-            }
-            var image = new Image();
-            image.onload = function() { imageLoaded(this); };
-            image.title = escape(f.name);
-            image.offsetX = 0;
-            image.offsetY = 0;
-            image.src = e.target.result;
-          };
-        })(file);
-        reader.readAsDataURL(file);
+        loadImage(file);
       }
       $('#fileinput').val("");  // reset file input field
+    }
+    
+    function loadImage(file) {
+      // load the image
+      var reader = new FileReader();
+      reader.onload = (function(f) {
+        return function(e) {
+          // check file type
+          if (!f.type.match('image.*')) {
+            alert("file " + f.name + " is not an image");
+            return;
+          }
+          var image = new Image();
+          image.title = escape(f.name);
+          image.offsetX = 0;
+          image.offsetY = 0;
+          image.onload = function() { imageLoaded(this); };
+          image.src = e.target.result;
+        };
+      })(file);
+      reader.readAsDataURL(file);
     }
     
     // load the crop at the given absolute position [x, y]
@@ -265,25 +238,40 @@
     // show the overview image (first image in imglist)
     function displayImage() {
       if (imglist.length > 0) {
-        displayExif();
+        $('#fileinfo').text(getExifInfoString(imglist[0]));
         $('#overviewimg').width(imagewidth);
         $('#overviewimg').attr('src', imglist[0].src);
         // calculate frame size
         framesize = Math.round(imagewidth * cropsize / imglist[0].width);
         imageheight = Math.round((imagewidth / imglist[0].width) * imglist[0].height);
-        // reset frame size and position
+        // set frame size
         $('.frame').width(framesize);
         $('.frame').height(framesize);
-        $('.frame').css('left', 0);
-        $('.frame').css('top', 0);
+        $('.frame').css('line-height', framesize + "px");
+        // make sure frame 1 and crop selectors / designators are visible
         $('#frame1').show();
+        $('#cropdesignator').slideDown();
         $('#cropselector').slideDown();
       }
     }
     
+    // rotate 180°
+    function rotateImage(img) {
+      var canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      var ctx = canvas.getContext("2d");
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(Math.PI);
+      ctx.drawImage(img, -canvas.width / 2, -canvas.height / 2);
+      ctx.restore();
+      img.orientation = 1;
+      img.src = canvas.toDataURL("image/jpeg", 1.0);  // or use "image/png"
+    }
+    
     // 'image loaded' event
     function imageLoaded(img) {
-      if (img === undefined) { return; }
       // perform a few checks and then add it to the list and create the necessery html elements
       if (imglist.length > 0) {
         // check if name exists
@@ -299,17 +287,32 @@
           return;   // abort
         }
       }
+      // check if image needs to be rotated
+      if (rotate) {
+        if (img.orientation === undefined) {
+          // load image orientation first!
+          EXIF.getData(img, function() {
+            img.orientation = EXIF.getTag(this, "Orientation") || 1;
+            imageLoaded(img);
+          });
+          return;
+        }
+        if (img.orientation == 3) {
+          rotateImage(img);
+          return;   // abort (next onload event will be triggered once the rotated image is assigned to 'src')
+        }
+      }
       // add image to the list
       imglist.push(img);
       // create html elements
       $('#filethumbs').append('<img class="thumb" src="' + img.src + '" title="' + img.title + '" id="img' + img.title + '" onclick="if (confirm(\'remove?\')) removeImage(this);" />');
-      $('#imgcrops').append('<div id="crops' + img.title + '" class="crops">' +
-                            '<canvas id="cv1' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="imgcrop adjustable" onmousedown="adjustCropBegin()" onmouseup="adjustCropEnd(\'' + img.title + '\')" onmouseleave="adjustCropEnd()" />' +
-                            '<canvas id="cv2' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="imgcrop" />' +
-                            '<canvas id="cv3' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="imgcrop" />' +
-                            '<div id="info' + img.title + '" class="imginfo"></div>' +
-                            '</div>');
-      displayExif(imglist.length - 1);
+      $('#cropcontainer').append('<div id="crops' + img.title + '" class="croprow" style="margin-bottom:' + cropmargin + 'px">' +
+                                 '<canvas id="cv1' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="cropimg moveable" onmousedown="adjustCropBegin()" onmouseup="adjustCropEnd(\'' + img.title + '\')" onmouseleave="adjustCropEnd()" style="margin-right:' + cropmargin + 'px" />' +
+                                 '<canvas id="cv2' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="cropimg" style="margin-right:' + cropmargin + 'px" />' +
+                                 '<canvas id="cv3' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="cropimg" style="margin-right:' + cropmargin + 'px" />' +
+                                 '<div id="info' + img.title + '" class="cropinfo"></div>' +
+                                 '</div>');
+      loadExif(img); // img == imglist[imglist.length - 1]
       // update list of filenames
       $('#fileselecttext').text(getFileNames().join(", "));
       // display image if first
@@ -344,9 +347,8 @@
         py = imglist[imgidx].height - cropsize;
       }
       // get the canvas and draw
-      const cropdesignators = ['A', 'B', 'C'];
       elem = document.getElementById("cv" + frame + imglist[imgidx].title);
-      elem.title = "crop " + cropdesignators[frame];
+      elem.title = "crop " + cropdesignators[frame - 1];
       const ctx = elem.getContext('2d');
       ctx.drawImage(imglist[imgidx], px, py, cropsize, cropsize, 0, 0, cropsize, cropsize);
     }
@@ -364,8 +366,6 @@
         if (idx == 0) {
           $('#fileinfo').empty();             // clear file info box
           $('#overviewimg').attr('src', '');  // remove overview image
-          $('.frame').hide();                 // hide the crop selection frames
-          $('#cropselector').fadeOut();       // hide the crop selection buttons
           framesize = 0;
           imageheight = 0;
           // show the next image in the list (if any)
@@ -373,7 +373,14 @@
         }
         // update the list of filenames
         if (imglist.length == 0) {
-          $('#fileselecttext').text("drop files here");
+          // this was the last element
+          $('.frame').css('left', 0);     // reset frame position
+          $('.frame').css('top', 0);
+          $('.frame').hide();             // hide the crop selection frames
+          $('#cropdesignator').fadeOut(); // hide designators
+          $('#cropselector').fadeOut();   // hide the crop selection buttons
+          selframe = 1;
+          $('#fileselecttext').text("drop image files here");
         } else {
           $('#fileselecttext').text(getFileNames().join(", "));
         }
@@ -383,7 +390,6 @@
     }
     
     // register global event listeners to prevent accidental drag select and drag&drop
-    $("img").mousedown(function() { return false; });
     window.ondragstart = function() { event.preventDefault(); }
     window.ondragover = function(e) {
       if (e.target.id != "fileinput") {
@@ -399,6 +405,15 @@
         e.dataTransfer.dropEffect = "none";
       }
     };
+    
+    // things to do when page is first opened
+    $( document ).ready(function() {
+      for (var i = 0; i < 3; i++) {
+        $('#frame' + (i + 1)).text(cropdesignators[i]);
+        $('#selectbutton' + (i + 1)).val(cropdesignators[i]);
+        $('#cropdesignator').append('<div style="float:left; text-align:center; margin-right:' + cropmargin + 'px; width:' + cropsize + 'px;">' + cropdesignators[i] + '</div>');
+      }
+    });
   //-->
   </script>
 </head>
@@ -407,23 +422,24 @@
   <div id="container"> 
     <br />
     <div id="fileselect" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active'); console.log(event.dataTransfer.files);">
-      <div id="fileselecttext">drop files here</div>
+      <div id="fileselecttext">drop image files here</div>
       <input type="file" multiple name="files[]" id="fileinput" accept=".jpg" onchange="processFiles();" />
     </div><br />
     <div id="filethumbs"></div><br /><br />
     <div id="cropselector">
-      <input type="button" id="selectbutton" value="A" onclick="selectCrop(1)" />
-      <input type="button" id="selectbutton" value="B" onclick="selectCrop(2)" />
-      <input type="button" id="selectbutton" value="C" onclick="selectCrop(3)" />
+      <input type="button" id="selectbutton1" onclick="selectCrop(1)" />
+      <input type="button" id="selectbutton2" onclick="selectCrop(2)" />
+      <input type="button" id="selectbutton3" onclick="selectCrop(3)" />
     </div>
     <div id="overview">
       <img id="overviewimg" class="noselect" src="" onload="" onclick="loadCrop()" />
-      <div class="frame noselect" id="frame1" onmousedown="moveFrameBegin(1)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()">A</div>
-      <div class="frame noselect" id="frame2" onmousedown="moveFrameBegin(2)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()">B</div>
-      <div class="frame noselect" id="frame3" onmousedown="moveFrameBegin(3)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()">C</div>
+      <div class="frame noselect" id="frame1" onmousedown="moveFrameBegin(1)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()"></div>
+      <div class="frame noselect" id="frame2" onmousedown="moveFrameBegin(2)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()"></div>
+      <div class="frame noselect" id="frame3" onmousedown="moveFrameBegin(3)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()"></div>
     </div>
     <div id="fileinfo"></div><br /><br />
-    <div id="imgcrops"></div><br /><br />
+    <div id="cropcontainer"></div><br /><br />
+    <div id="cropdesignator"></div><br /><br />
     <br />
   </div>
   </center>
