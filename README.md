@@ -19,4 +19,4 @@ The tool is based on Javascript and runs offline in your browser, no server conn
 If you want to try it out before downloading, a demo is available here: https://keepcoding.ch/demo/cropcomparator
 
 
-![example](https://github.com/rdaforno/cropcomparator/blob/master/cropcomparator_example.jpg "crop comparator example")
+![example](https://github.com/rdaforno/cropcomparator/blob/master/screenshots/cropcomparator_example2.jpg "crop comparator example")
