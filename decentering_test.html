@@ -1,0 +1,261 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="description" content="share your files" />
+  <meta http-equiv="Content-Script-Type" content="text/javascript" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta http-equiv="cache-control" content="no-cache" />
+  <meta http-equiv="pragma" content="no-cache" />
+  <meta http-equiv="content-language" content="en" />
+  <title>-- Lens Decentering Test --</title>
+  <style type="text/css">
+    body { font: 12px verdana,arial,helvetica,sans-serif; color: #606060; text-align: left; background-color: #ffffff; }
+    img { border: 0px; position: absolute; }
+    input[type=file] { color: #fff; opacity: 0.0; cursor: pointer; }
+    input[type=file]:focus { outline-width: 0; }
+    #container { position: relative; width: 90%; text-align: left; }
+    #info { float: left; width: 100%; margin-top: 20px; margin-bottom: 20px; text-align: center; clear: both }
+    .filedropzone { position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; }
+    .filedropzone:hover { background-color: #f4f4f4; }
+    .filedropzone[drop-active=true] { background-color: #fffcf4; }
+    .fileinfo { float: left; width: 100px; padding: 5px; text-align: center; line-height: 200%; }
+    .bgtext { position: absolute; top: 45%; width: 100%; text-align: center; }
+    .cropframe { position: relative; float: left; overflow: hidden; border: 2px #606060 dashed; }
+    .crop:hover { cursor: move }
+    .clearboth { float: left; clear: both; }
+    .noselect { -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -o-user-select: none; user-select: none; }
+    .imageframe { position: relative; margin: auto; width: 300px; height: 200px; border: 2px #606060 solid; background-color: #f4f4f4 }
+    .textbox { position: absolute; height: 50px; width: 50px; border: 2px #606060 dashed; background-color: #fffcf4; text-align: center; line-height: 50px; font-size: 10px }
+  </style>
+  <script type="text/javascript" src="jquery-3.4.1.min.js"></script>  <!-- include jQuery library -->
+  <script type="text/javascript" src="exif.js"></script>      <!-- include exif-js library (https://github.com/exif-js/exif-js) -->
+  <script type="text/javascript">
+  <!--
+    // --------------------------------------------------------------------------------------
+    // Lens Decentering Test
+    // (c) 2020 rdaforno | https://github.com/rdaforno/cropcomparator
+    // --------------------------------------------------------------------------------------
+    
+    // --- config ---
+    
+    const cropsize        = 400;              // size of the square crops, in pixel
+    const cropmargin      = 10;               // margin between the crops, in pixel
+    const rotate          = true;             // rotate inverted images by 180°
+    
+    
+    // --- globals (state and constants) ---
+    
+    var clickstart = {};
+    const loadinganim = "data:image/gif;base64,R0lGODlhEAALAPQAAP///wAAANra2tDQ0Orq6gYGBgAAAC4uLoKCgmBgYLq6uiIiIkpKSoqKimRkZL6+viYmJgQEBE5OTubm5tjY2PT09Dg4ONzc3PLy8ra2tqCgoMrKyu7u7gAAAAAAAAAAACH+GkNyZWF0ZWQgd2l0aCBhamF4bG9hZC5pbmZvACH5BAALAAAAIf8LTkVUU0NBUEUyLjADAQAAACwAAAAAEAALAAAFLSAgjmRpnqSgCuLKAq5AEIM4zDVw03ve27ifDgfkEYe04kDIDC5zrtYKRa2WQgAh+QQACwABACwAAAAAEAALAAAFJGBhGAVgnqhpHIeRvsDawqns0qeN5+y967tYLyicBYE7EYkYAgAh+QQACwACACwAAAAAEAALAAAFNiAgjothLOOIJAkiGgxjpGKiKMkbz7SN6zIawJcDwIK9W/HISxGBzdHTuBNOmcJVCyoUlk7CEAAh+QQACwADACwAAAAAEAALAAAFNSAgjqQIRRFUAo3jNGIkSdHqPI8Tz3V55zuaDacDyIQ+YrBH+hWPzJFzOQQaeavWi7oqnVIhACH5BAALAAQALAAAAAAQAAsAAAUyICCOZGme1rJY5kRRk7hI0mJSVUXJtF3iOl7tltsBZsNfUegjAY3I5sgFY55KqdX1GgIAIfkEAAsABQAsAAAAABAACwAABTcgII5kaZ4kcV2EqLJipmnZhWGXaOOitm2aXQ4g7P2Ct2ER4AMul00kj5g0Al8tADY2y6C+4FIIACH5BAALAAYALAAAAAAQAAsAAAUvICCOZGme5ERRk6iy7qpyHCVStA3gNa/7txxwlwv2isSacYUc+l4tADQGQ1mvpBAAIfkEAAsABwAsAAAAABAACwAABS8gII5kaZ7kRFGTqLLuqnIcJVK0DeA1r/u3HHCXC/aKxJpxhRz6Xi0ANAZDWa+kEAA7AAAAAAAAAAAA";
+    
+    
+    // --- functions ---
+    
+    function processFiles(id) {
+      $('#fileselecttext' + id).html('<img src="' + loadinganim + '" />');
+      const file = $('#fileselect' + id).prop('files')[0];
+      // load the image
+      var reader = new FileReader();
+      reader.onload = (function(f, i) {
+        return function(e) {
+          // check file type
+          if (!f.type.match('image.*')) {
+            $('#fileselecttext' + id).text("file '" + f.name + "' is not an image");
+            return;
+          }
+          var image = new Image();
+          image.title = escape(f.name);
+          image.id = i;
+          image.onload = function() { imageLoaded(this); };
+          image.src = e.target.result;
+        };
+      })(file, id);
+      reader.readAsDataURL(file);
+      $('#fileselect' + id).val("");  // reset file input field
+    }
+    
+    // 'image loaded' event
+    function imageLoaded(img) {
+      // check if image needs to be rotated
+      if (rotate) {
+        if (img.orientation === undefined) {
+          // load image orientation first!
+          EXIF.getData(img, function() {
+            img.orientation = EXIF.getTag(this, "Orientation") || 1;
+            imageLoaded(img);
+          });
+          return;
+        }
+        if (img.orientation == 3) {
+          rotateImage(img);
+          return;   // abort (next onload event will be triggered once the rotated image is assigned to 'src')
+        }
+      }
+      // set default position
+      x = 0;
+      y = 0;
+      if (img.id == 2) {
+        x = -(img.width - cropsize);     // upper right corner
+      } else if (img.id == 3) {
+        y = -(img.height - cropsize);    // lower left corner
+      } else if (img.id == 4) {
+        x = -(img.width - cropsize);
+        y = -(img.height - cropsize);    // lower right corner
+      }
+      $('#cropframe' + img.id).css('border-color', '#fff');
+      $('#cropframe' + img.id).html('<img src="' + img.src + '" title="' + img.title + '" id="img' + img.id + '" class="crop noselect" style="top: ' + y + 'px; left: ' + x + 'px" onmousedown="moveBegin(this)" onmousemove="moveImage(this)" onmouseup="moveEnd()" onmouseout="moveEnd()" />');
+      EXIF.getData(img, function() {
+        img.exif = EXIF.getAllTags(this);
+        $('#fileinfo' + img.id).html("<br />" + img.title.slice(0, -4) + "<br />" + (getExposureInfo(img).join("<br />")));
+      });
+    }
+    
+    // returns an array with basic exposure info
+    function getExposureInfo(img) {
+      var output = [];
+      if (img.exif.FocalLength !== undefined)     { output.push(img.exif.FocalLength + "mm"); }   // alternative: FocalLengthIn35mmFilm
+      if (img.exif.FNumber !== undefined)         { output.push("F" + img.exif.FNumber); }
+      if (img.exif.ExposureTime !== undefined)    { output.push(((img.exif.ExposureTime < 1) ? ("1/" + (1 / img.exif.ExposureTime)) : (img.exif.ExposureTime)) + "s"); }
+      if (img.exif.ISOSpeedRatings !== undefined) { output.push("ISO" + img.exif.ISOSpeedRatings); }
+      return output;
+    }
+    
+    // rotate 180°
+    function rotateImage(img) {
+      var canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      var ctx = canvas.getContext("2d");
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(Math.PI);
+      ctx.drawImage(img, -canvas.width / 2, -canvas.height / 2);
+      ctx.restore();
+      img.orientation = 1;
+      img.src = canvas.toDataURL("image/jpeg", 1.0);
+    }
+    
+    function moveBegin(img) {
+      curpos = $('#' + img.id).position();
+      clickstart = { left: curpos.left, top: curpos.top, x: event.clientX, y: event.clientY, valid: true };
+    }
+    
+    function moveEnd() {
+      clickstart.valid = false;
+    }
+    
+    function moveImage(img) {
+      if (clickstart.valid) {
+        x = clickstart.left + (event.clientX - clickstart.x);
+        y = clickstart.top + (event.clientY - clickstart.y);
+        if (y > 0) y = 0;
+        else if (y < -(img.height - cropsize)) y = -(img.height - cropsize);
+        if (x > 0) x = 0;
+        else if (x < -(img.width - cropsize)) x = -(img.width - cropsize);
+        $('#' + img.id).css('top', y);
+        $('#' + img.id).css('left', x);
+      }
+    }
+    
+    // register global event listeners to prevent accidental drag select and drag&drop
+    window.ondragstart = function() { event.preventDefault(); }
+    window.ondragover = function(e) {
+      if (e.target.id != "fileselect1" && e.target.id != "fileselect2" && e.target.id != "fileselect3" && e.target.id != "fileselect4") {
+        e.preventDefault();
+        e.dataTransfer.effectAllowed = "none";
+        e.dataTransfer.dropEffect = "none";
+      }
+    };
+    window.ondrop = function(e) {
+      if (e.target.id != "fileselect1" && e.target.id != "fileselect2" && e.target.id != "fileselect3" && e.target.id != "fileselect4") {
+        e.preventDefault();
+        e.dataTransfer.effectAllowed = "none";
+        e.dataTransfer.dropEffect = "none";
+      }
+    };
+    
+    // things to do when page is first opened
+    $( document ).ready(function() {
+      $('.cropframe').css('width', cropsize + 'px');
+      $('.cropframe').css('height', cropsize + 'px');
+      $('.cropframe').css('margin-right', cropmargin + 'px');
+      $('.cropframe').css('margin-bottom', cropmargin + 'px');
+      $('.fileinfo').css('height', cropsize + 'px');
+      $('#info').css('width', (2 * cropsize + 2 * cropmargin + 236) + 'px');
+    });
+  //-->
+  </script>
+</head>
+<body>
+  <center>
+  <div id="container"> 
+    <br />
+    <div id="info">
+      <h1>Lens decentering test</h1>
+      <br />
+      <br />
+      <h2>1. Choose a subject</h2>
+      Choose a static subject that is relatively far away (> 100m), but not too far to limit the influence of atmospheric effects.<br />
+      You should perform this test in bright daylight.<br />
+      <br />
+      <h2>2. Adjust settings</h2>      
+      Select the max. available aperture of the lens (smallest F-number).<br />
+      ISO should be near the base value to limit the amount of noise in the result.<br />
+      Make sure the shutter speed is sufficiently fast for handheld shooting (>= 1/1000s) or use a tripod.<br />
+      Set the white balance to a fixed preset (e.g. daylight).<br />
+      Lock the auto exposure either by switching the camera to manual mode (M) or by pressing the AEL button.<br />
+      (Optional) Disable IBIS.<br />
+      <br />
+      <h2>3. Set focus</h2>
+      Place the subject in the middle of the frame and focus (either with AF or MF). For the following steps it is essential that the focus does not change anymore. Either make sure that the shutter button does not trigger AF or switch the camera to MF mode.<br />
+      <br />
+      <div class="imageframe"><div class="textbox" style="top: 50%; left: 50%; margin: -27px;">focus</div></div><br />
+      <br />
+      <h2>4. Take the photos</h2>
+      Place the subject in each corner of the frame and take a photo without changing the focus.<br />
+      <br />
+      <div class="imageframe">
+        <div class="textbox" style="top: 1px; left: 1px">photo 1</div>
+        <div class="textbox" style="top: 1px; left: 245px">photo 2</div>
+        <div class="textbox" style="top: 145px; left: 1px">photo 3</div>
+        <div class="textbox" style="top: 145px; left: 245px">photo 4</div>
+      </div><br />
+      <br />
+      <h2>5. Load the photos</h2>
+      Load each of the 4 photos by dropping them into the appropriate frame below.<br />
+      You can move each crop (visible portion of the photo) to align the subject.<br />
+      <br />
+    </div>
+    <div class="clearboth">
+      <div class="fileinfo" id="fileinfo1"></div>
+      <div class="cropframe" id="cropframe1">
+        <div class="bgtext" id="fileselecttext1">drop photo 1 here (upper left corner)</div>
+        <input type="file" name="file" class="filedropzone" id="fileselect1" accept=".jpg" onchange="processFiles(1);" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active');" />
+      </div>
+      <div class="cropframe" id="cropframe2">
+        <div class="bgtext" id="fileselecttext2">drop photo 2 here (upper right corner)</div>
+        <input type="file" name="file" class="filedropzone" id="fileselect2" accept=".jpg" onchange="processFiles(2);" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active');" />
+      </div>
+      <div class="fileinfo" id="fileinfo2"></div>
+    </div>
+    <div class="clearboth">
+      <div class="fileinfo" id="fileinfo3"></div>
+      <div class="cropframe" id="cropframe3">
+        <div class="bgtext" id="fileselecttext3">drop photo 3 here (lower left corner)</div>
+        <input type="file" name="file" class="filedropzone" id="fileselect3" accept=".jpg" onchange="processFiles(3);" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active');" />
+      </div>
+      <div class="cropframe" id="cropframe4">
+        <div class="bgtext" id="fileselecttext4">drop photo 4 here (lower right corner)</div>
+        <input type="file" name="file" class="filedropzone" id="fileselect4" accept=".jpg" onchange="processFiles(4);" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active');" />
+      </div>
+      <div class="fileinfo" id="fileinfo4"></div>
+    </div>
+    <div class="clearboth"><br /><br /><br /></div>
+    
+  </div>
+  </center>
+</body>
+</html>
