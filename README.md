@@ -1,8 +1,8 @@
 # Photo Crop Comparator
 
-This tool lets you compare 100% crops of multiple images (jpg). A typical use case is to compare image quality and sharpness of two or more photos of the same scene shot with different lenses or at different aperture values.
+This tool lets you compare 100% crops of multiple images (jpg). A typical use case is to compare image quality and sharpness of two or more photos of the same scene shot with different lenses or at different aperture values (lens test).
 Basic EXIF information about each file is displayed ([exif-js](https://github.com/exif-js/exif-js) is utilized).  
-The tool is based on Javascript and runs offline in your browser, no server connection required.
+The tool is based on Javascript and runs offline in your browser (Chrome and Firefox), no server connection required.
 
 
 ## How to
