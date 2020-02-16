@@ -17,7 +17,7 @@
     input[type=file] { color: #fff; opacity: 0.0; cursor: pointer; }
     input[type=file]:focus { outline-width: 0; }
     #container { position: relative; width: 90%; text-align: left; }
-    #info { float: left; width: 100%; margin-top: 20px; margin-bottom: 20px; text-align: center; clear: both }
+    #info { float: left; width: 100%; margin-top: 20px; margin-bottom: 20px; text-align: center; clear: both; line-height: 150% }
     .filedropzone { position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; }
     .filedropzone:hover { background-color: #f4f4f4; }
     .filedropzone[drop-active=true] { background-color: #fffcf4; }
@@ -198,24 +198,30 @@
       <br />
       <br />
       <h2>1. Choose a subject</h2>
-      Choose a static subject that is relatively far away (> 100m), but not too far to limit the influence of atmospheric effects.<br />
+      To avoid alignment issue, choose a static subject that is relatively far away (at least ~100m),<br />but not too far to limit the influence of atmospheric effects.<br />
       You should perform this test in bright daylight.<br />
       <br />
       <h2>2. Adjust settings</h2>      
-      Select the max. available aperture of the lens (smallest F-number).<br />
+      Select the max. available aperture of the lens (smallest f-number).<br />
       ISO should be near the base value to limit the amount of noise in the result.<br />
       Make sure the shutter speed is sufficiently fast for handheld shooting (<= 1/500s) or use a tripod.<br />
       Set the white balance to a fixed preset (e.g. daylight).<br />
-      Lock the auto exposure either by switching the camera to manual mode (M) or by pressing the AEL button.<br />
-      Optional: for best results, use the mechanical shutter and disable IBIS.<br />
+      Lock the auto exposure e.g. by switching the camera to manual mode (M) or using the AEL button.<br />
+      <i>Optional:</i> For best results, use the mechanical shutter and disable IBIS.<br />
       <br />
       <h2>3. Set focus</h2>
-      Place the subject in the middle of the frame and focus (either with AF or MF). For the following steps it is essential that the focus does not change anymore. Either make sure that the shutter button does not trigger AF or switch the camera to MF mode.<br />
+      Place the subject in the middle of the frame and focus (either with AF or MF).<br />
+      For the following steps it is essential that the focus does not change anymore.<br />
+      Either make sure that the shutter button does not trigger AF or switch the camera to MF mode.<br />
       <br />
       <div class="imageframe"><div class="textbox" style="top: 50%; left: 50%; margin: -27px;">focus</div></div><br />
+      <i>Alternative:</i> Some lenses exhibit significant field curvature, i.e. the plane of focus isn't flat (corners will be slightly out-of-focus).<br />
+      To mitigate this issue, the focus can be set to one of the corners instead of the middle of the frame:<br />
+      <br />
+      <div class="imageframe"><div class="textbox" style="top: 1px; left: 1px;">focus</div></div><br />
       <br />
       <h2>4. Take the photos</h2>
-      Place the subject in each corner of the frame and take a photo without changing the focus.<br />
+      Place the subject in each corner of the frame and take the photos without changing the focus.<br />
       <br />
       <div class="imageframe">
         <div class="textbox" style="top: 1px; left: 1px">photo 1</div>
@@ -228,7 +234,8 @@
       Load all 4 photos by dropping them into the appropriate frame below.<br />
       You can move each crop (visible portion of the photo) to align the subject.<br />
       If the subject looks about the same in terms of sharpness on all 4 crops, then your lens is probably fine.<br />
-      If one crop is blurrier than the others, then your lens is most likely decentered (lens element tilt).<br />
+      If one crop is clearly blurrier than the others, then your lens is most likely decentered (lens element tilt).<br />
+      If all crops are blurry, repeat the test with the <i>alternative</i> focus method or with the aperture stopped down by a full f-stop.<br />
       <br />
     </div>
     <div class="clearboth">
