@@ -19,6 +19,9 @@
     input[type=button]:focus { outline-width: 0; }
     input[type=file] { padding: 60px; width: 100%; vertical-align: middle; text-align: center; color: #fff; opacity: 0.0; cursor: pointer; }
     input[type=file]:focus { outline-width: 0; }
+    input[type=text] { padding: 5px; border: 1px solid #606060; }
+    input[type=text]:focus { outline-width: 0; }
+    textarea { line-height: 200%; border: 1px solid #606060; }
     #container { position: relative; width: 90%; text-align: left; }
     #fileselect { position: relative; width: 100%; max-width: 1000px; float: left; height: 60px; overflow: hidden; margin-top: 10px; margin-bottom: 10px; border: 2px dashed #606060; vertical-align: top; text-align: center; }
     #fileselect:hover { background-color: #f4f4f4; }
@@ -29,9 +32,9 @@
     #overview { position: relative; float: left; clear: both; }
     #cropcontainer { position: relative; float: left; clear: both; }
     #cropselector { display:none; float: left; clear: both; }
-    #cropdesignator { display:none; float: left; clear: both; margin-bottom: 100px; }
+    #cropdesignator { display:none; float: left; clear: both; margin-top: 5px; margin-bottom: 100px; }
     .thumb { height: 75px; margin: 10px 5px 0 0; cursor: not-allowed; }
-    .cropinfo { float: left; padding-left: 5px; padding-top: 50px; line-height: 200%; }
+    .cropinfo { float: left; padding-left: 10px; padding-top: 50px; line-height: 200%; }
     .cropimg { float: left; }
     .croprow { float: left; clear: both; }
     .frame { position: absolute; display: none; left: 0px; top: 0px; border: 0px solid #606060; color: #606060; font-size: 18px; font-weight: bold; background-color: #ffffff; opacity: 0.6; text-align: center }
@@ -52,18 +55,20 @@
     
     const imagewidth      = 1000;             // size of the overview image, in pixel
     const cropsize        = 300;              // size of the square crops, in pixel
-    const cropmargin      = 10;               // margin between the crops, in pixel
+    const cropmargin      = 3;                // margin between the crops, in pixel
     const cropdesignators = ['A', 'B', 'C'];  // displayed designators for crop selection frames
     const rotate          = true;             // rotate inverted images by 180°
     
     
-    // --- globals (state) ---
+    // --- globals ---
     
     var imglist = [];
     var imageheight = 0;
     var selframe = 1;
     var framesize = 0;
     var clickstartpos = [];
+    var texteditelem = 0;                     // text element that is currently being edited
+    var loadinganim = '<img src="data:image/gif;base64,R0lGODlhEAALAPQAAPT09AAAANHR0cfHx+Dg4AUFBQAAACwsLHx8fFxcXLKysiAgIEdHR4SEhGBgYLa2tiQkJAMDA0pKStzc3M/Pz+rq6jU1NdPT0+jo6K6urpmZmcLCwuTk5AAAAAAAAAAAACH+GkNyZWF0ZWQgd2l0aCBhamF4bG9hZC5pbmZvACH5BAALAAAAIf8LTkVUU0NBUEUyLjADAQAAACwAAAAAEAALAAAFLSAgjmRpnqSgCuLKAq5AEIM4zDVw03ve27ifDgfkEYe04kDIDC5zrtYKRa2WQgAh+QQACwABACwAAAAAEAALAAAFJGBhGAVgnqhpHIeRvsDawqns0qeN5+y967tYLyicBYE7EYkYAgAh+QQACwACACwAAAAAEAALAAAFNiAgjothLOOIJAkiGgxjpGKiKMkbz7SN6zIawJcDwIK9W/HISxGBzdHTuBNOmcJVCyoUlk7CEAAh+QQACwADACwAAAAAEAALAAAFNSAgjqQIRRFUAo3jNGIkSdHqPI8Tz3V55zuaDacDyIQ+YrBH+hWPzJFzOQQaeavWi7oqnVIhACH5BAALAAQALAAAAAAQAAsAAAUyICCOZGme1rJY5kRRk7hI0mJSVUXJtF3iOl7tltsBZsNfUegjAY3I5sgFY55KqdX1GgIAIfkEAAsABQAsAAAAABAACwAABTcgII5kaZ4kcV2EqLJipmnZhWGXaOOitm2aXQ4g7P2Ct2ER4AMul00kj5g0Al8tADY2y6C+4FIIACH5BAALAAYALAAAAAAQAAsAAAUvICCOZGme5ERRk6iy7qpyHCVStA3gNa/7txxwlwv2isSacYUc+l4tADQGQ1mvpBAAIfkEAAsABwAsAAAAABAACwAABS8gII5kaZ7kRFGTqLLuqnIcJVK0DeA1r/u3HHCXC/aKxJpxhRz6Xi0ANAZDWa+kEAA7AAAAAAAAAAAA" />';
     
     
     // --- functions ---
@@ -155,7 +160,7 @@
       EXIF.getData(img, function() {
         img.exif = EXIF.getAllTags(this);
         //console.log(EXIF.getAllTags(this));
-        document.getElementById('info' + img.title).innerHTML = img.title.slice(0, -4) + "<br />" + (getExposureInfo(img).join("<br />"));
+        document.getElementById('info' + img.title).innerHTML = img.title.slice(0, -4) + "<br />\n" + (getExposureInfo(img).join("<br />\n"));
       });
     }
     
@@ -187,10 +192,16 @@
     
     // process the selected files
     function processFiles() {
-      $('#fileselecttext').html('<img src="data:image/gif;base64,R0lGODlhEAALAPQAAPT09AAAANHR0cfHx+Dg4AUFBQAAACwsLHx8fFxcXLKysiAgIEdHR4SEhGBgYLa2tiQkJAMDA0pKStzc3M/Pz+rq6jU1NdPT0+jo6K6urpmZmcLCwuTk5AAAAAAAAAAAACH+GkNyZWF0ZWQgd2l0aCBhamF4bG9hZC5pbmZvACH5BAALAAAAIf8LTkVUU0NBUEUyLjADAQAAACwAAAAAEAALAAAFLSAgjmRpnqSgCuLKAq5AEIM4zDVw03ve27ifDgfkEYe04kDIDC5zrtYKRa2WQgAh+QQACwABACwAAAAAEAALAAAFJGBhGAVgnqhpHIeRvsDawqns0qeN5+y967tYLyicBYE7EYkYAgAh+QQACwACACwAAAAAEAALAAAFNiAgjothLOOIJAkiGgxjpGKiKMkbz7SN6zIawJcDwIK9W/HISxGBzdHTuBNOmcJVCyoUlk7CEAAh+QQACwADACwAAAAAEAALAAAFNSAgjqQIRRFUAo3jNGIkSdHqPI8Tz3V55zuaDacDyIQ+YrBH+hWPzJFzOQQaeavWi7oqnVIhACH5BAALAAQALAAAAAAQAAsAAAUyICCOZGme1rJY5kRRk7hI0mJSVUXJtF3iOl7tltsBZsNfUegjAY3I5sgFY55KqdX1GgIAIfkEAAsABQAsAAAAABAACwAABTcgII5kaZ4kcV2EqLJipmnZhWGXaOOitm2aXQ4g7P2Ct2ER4AMul00kj5g0Al8tADY2y6C+4FIIACH5BAALAAYALAAAAAAQAAsAAAUvICCOZGme5ERRk6iy7qpyHCVStA3gNa/7txxwlwv2isSacYUc+l4tADQGQ1mvpBAAIfkEAAsABwAsAAAAABAACwAABS8gII5kaZ7kRFGTqLLuqnIcJVK0DeA1r/u3HHCXC/aKxJpxhRz6Xi0ANAZDWa+kEAA7AAAAAAAAAAAA" />');  // or use: .text('loading...')
+      $('#fileselecttext').html(loadinganim);
       var filelist = $('#fileinput').prop('files');
-      for (file of filelist) {
-        loadImage(file);
+      // first, sort the array by filename
+      var filenames = [];
+      for (var i = 0; i < filelist.length; i++) {
+        filenames.push([filelist[i].name, i])
+      }
+      filenames.sort();
+      for (file of filenames) {
+        loadImage(filelist[file[1]]);
       }
       $('#fileinput').val("");  // reset file input field
     }
@@ -310,7 +321,7 @@
                                  '<canvas id="cv1' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="cropimg moveable" onmousedown="adjustCropBegin()" onmouseup="adjustCropEnd(\'' + img.title + '\')" onmouseleave="adjustCropEnd()" style="margin-right:' + cropmargin + 'px" />' +
                                  '<canvas id="cv2' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="cropimg" style="margin-right:' + cropmargin + 'px" />' +
                                  '<canvas id="cv3' + img.title + '" width=' + cropsize + ' height=' + cropsize + ' class="cropimg" style="margin-right:' + cropmargin + 'px" />' +
-                                 '<div id="info' + img.title + '" class="cropinfo"></div>' +
+                                 '<div id="info' + img.title + '" class="cropinfo" ondblclick="editText(this, true)"></div>' +
                                  '</div>');
       loadExif(img); // img == imglist[imglist.length - 1]
       // update list of filenames
@@ -389,6 +400,35 @@
       img.remove();
     }
     
+    // start text editor
+    function editText(elem, multiline) {
+      if (texteditelem == 0 || texteditelem != elem) {
+        var text = elem.textContent;
+        if (multiline) {
+          lines = text.split('\n');
+          var maxlen = 0;
+          for (l = 0; l < lines.length; l++) {
+            if (lines[l].length > maxlen) {
+              maxlen = lines[l].length;
+            }
+          }
+          elem.innerHTML = '<textarea class="textinput" cols="' + maxlen + '" rows="' + lines.length + '">' + text + '</textarea>';
+        } else {
+          elem.innerHTML = '<input class="textinput" type="text" value="' + text + '" size="' + text.length + '" />';
+        }
+        texteditelem = elem;
+      }
+    }
+    
+    // stop text editor
+    function fixText() {
+      if (texteditelem != 0) {
+        var text = texteditelem.getElementsByClassName('textinput')[0].value;
+        texteditelem.innerHTML = text.split('\n').join("<br />\n");
+        texteditelem = 0;
+      }
+    }
+    
     // register global event listeners to prevent accidental drag select and drag&drop
     window.ondragstart = function() { event.preventDefault(); }
     window.ondragover = function(e) {
@@ -405,13 +445,20 @@
         e.dataTransfer.dropEffect = "none";
       }
     };
+    window.onclick = function(e) {
+      if (texteditelem != 0) {
+        if (e.target.classList[0] != "textinput") {
+          fixText();
+        }
+      }
+    }
     
     // things to do when page is first opened
     $( document ).ready(function() {
       for (var i = 0; i < 3; i++) {
         $('#frame' + (i + 1)).text(cropdesignators[i]);
         $('#selectbutton' + (i + 1)).val(cropdesignators[i]);
-        $('#cropdesignator').append('<div style="float:left; text-align:center; margin-right:' + cropmargin + 'px; width:' + cropsize + 'px;">' + cropdesignators[i] + '</div>');
+        $('#cropdesignator').append('<div class="noselect" style="float:left; text-align:center; margin-right:' + cropmargin + 'px; width:' + cropsize + 'px; cursor:text" ondblclick="editText(this)">' + cropdesignators[i] + '</div>');
       }
     });
   //-->
@@ -437,7 +484,7 @@
       <div class="frame noselect" id="frame2" onmousedown="moveFrameBegin(2)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()"></div>
       <div class="frame noselect" id="frame3" onmousedown="moveFrameBegin(3)" onmouseup="moveFrameEnd()" onmousemove="moveFrame()" onmouseout="moveFrameEnd()"></div>
     </div>
-    <div id="fileinfo"></div><br /><br />
+    <div id="fileinfo" ondblclick="editText(this)"></div><br /><br />
     <div id="cropcontainer"></div><br /><br />
     <div id="cropdesignator"></div><br /><br />
     <br />
