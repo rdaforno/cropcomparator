@@ -23,6 +23,7 @@
     input[type=text]:focus { outline-width: 0; }
     textarea { line-height: 200%; border: 1px solid #606060; }
     #container { position: relative; width: 90%; text-align: left; }
+    #infomessage { display:none; with: 100%; text-align: center; padding: 10px; background-color: #f0d0d0; color: #600000; border: 2px solid #600000; max-width: 980px; margin-bottom: 10px; }
     #fileselect { position: relative; width: 100%; max-width: 1000px; float: left; height: 60px; overflow: hidden; margin-top: 10px; margin-bottom: 10px; border: 2px dashed #606060; vertical-align: top; text-align: center; }
     #fileselect:hover { background-color: #f4f4f4; }
     #fileselect[drop-active=true] { background-color: #fffcf4; }
@@ -460,6 +461,10 @@
         $('#selectbutton' + (i + 1)).val(cropdesignators[i]);
         $('#cropdesignator').append('<div class="noselect" style="float:left; text-align:center; margin-right:' + cropmargin + 'px; width:' + cropsize + 'px; cursor:text" ondblclick="editText(this)">' + cropdesignators[i] + '</div>');
       }
+      if (window.devicePixelRatio != 1.0) {
+        $('#infomessage').text("Your screen pixel ratio (scaling setting) is " + window.devicePixelRatio.toFixed(2) + ":1. Consider adjusting it to 1:1 by scaling this webpage accordingly (ctrl + mouse wheel).");
+        $('#infomessage').slideDown().delay(10000).slideUp();
+      }
     });
   //-->
   </script>
@@ -468,6 +473,7 @@
   <center>
   <div id="container"> 
     <br />
+    <div id="infomessage"></div>
     <div id="fileselect" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active'); console.log(event.dataTransfer.files);">
       <div id="fileselecttext">drop image files here</div>
       <input type="file" multiple name="files[]" id="fileinput" accept=".jpg" onchange="processFiles();" />
