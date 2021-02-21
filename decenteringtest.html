@@ -17,7 +17,7 @@
     input[type=file] { color: #fff; opacity: 0.0; cursor: pointer; }
     input[type=file]:focus { outline-width: 0; }
     #container { position: relative; width: 90%; text-align: left; }
-    #info { float: left; width: 100%; margin-top: 20px; margin-bottom: 20px; text-align: center; clear: both; line-height: 150% }
+    .info { float: left; width: 100%; margin-top: 20px; margin-bottom: 20px; text-align: center; clear: both; line-height: 150% }
     .filedropzone { position: absolute; top: 0px; left: 0px; width: 100%; height: 100%; }
     .filedropzone:hover { background-color: #f4f4f4; }
     .filedropzone[drop-active=true] { background-color: #fffcf4; }
@@ -42,8 +42,10 @@
     // --- config ---
     
     const cropsize        = 400;              // size of the square crops, in pixel
+    const cropsizelong    = 800;              // long side for the rectangular crops, in pixel
     const cropmargin      = 10;               // margin between the crops, in pixel
-    const rotate          = true;             // rotate inverted images by 180°
+    const rotate          = false;            // rotate inverted images by 180°
+    const rightedge       = false;            // show the right edge by default for the upside-down method
     
     
     // --- globals (state and constants) ---
@@ -97,6 +99,7 @@
       // set default position
       x = 0;
       y = 0;
+      // the following IDs must match the IDs of the div's below in the html
       if (img.id == 2) {
         x = -(img.width - cropsize);     // upper right corner
       } else if (img.id == 3) {
@@ -104,6 +107,11 @@
       } else if (img.id == 4) {
         x = -(img.width - cropsize);
         y = -(img.height - cropsize);    // lower right corner
+      } else if (img.id == 5 || img.id == 6) {
+        y = -(img.height / 2 - cropsize / 2);   // edge crop
+        if (rightedge) {
+          x = -(img.width - cropsizelong);
+        }
       }
       $('#cropframe' + img.id).css('border-color', '#fff');
       $('#cropframe' + img.id).html('<img src="' + img.src + '" title="' + img.title + '" id="img' + img.id + '" class="crop noselect" style="top: ' + y + 'px; left: ' + x + 'px" onmousedown="moveBegin(this)" onmousemove="moveImage(this)" onmouseup="moveEnd()" onmouseout="moveEnd()" />');
@@ -149,12 +157,17 @@
     
     function moveImage(img) {
       if (clickstart.valid) {
+        cropsizeX = cropsize;
+        cropsizeY = cropsize;
+        if (img.id == 'img5' || img.id == 'img6') {
+          cropsizeY = cropsizelong;   // y is the long side
+        }
         x = clickstart.left + (event.clientX - clickstart.x);
         y = clickstart.top + (event.clientY - clickstart.y);
         if (y > 0) y = 0;
-        else if (y < -(img.height - cropsize)) y = -(img.height - cropsize);
+        else if (y < -(img.height - cropsizeY)) y = -(img.height - cropsizeY);
         if (x > 0) x = 0;
-        else if (x < -(img.width - cropsize)) x = -(img.width - cropsize);
+        else if (x < -(img.width - cropsizeX)) x = -(img.width - cropsizeX);
         $('#' + img.id).css('top', y);
         $('#' + img.id).css('left', x);
       }
@@ -163,19 +176,13 @@
     // register global event listeners to prevent accidental drag select and drag&drop
     window.ondragstart = function() { event.preventDefault(); }
     window.ondragover = function(e) {
-      if (e.target.id != "fileselect1" && e.target.id != "fileselect2" && e.target.id != "fileselect3" && e.target.id != "fileselect4") {
+      if (!e.target.id.startsWith("fileselect")) {
         e.preventDefault();
         e.dataTransfer.effectAllowed = "none";
         e.dataTransfer.dropEffect = "none";
       }
     };
-    window.ondrop = function(e) {
-      if (e.target.id != "fileselect1" && e.target.id != "fileselect2" && e.target.id != "fileselect3" && e.target.id != "fileselect4") {
-        e.preventDefault();
-        e.dataTransfer.effectAllowed = "none";
-        e.dataTransfer.dropEffect = "none";
-      }
-    };
+    window.ondrop = window.ondragover;
     
     // things to do when page is first opened
     $( document ).ready(function() {
@@ -183,8 +190,9 @@
       $('.cropframe').css('height', cropsize + 'px');
       $('.cropframe').css('margin-right', cropmargin + 'px');
       $('.cropframe').css('margin-bottom', cropmargin + 'px');
+      $('.cropframerect').css('height', cropsizelong + 'px');     // make y the long side
       $('.fileinfo').css('height', cropsize + 'px');
-      $('#info').css('width', (2 * cropsize + 2 * cropmargin + 236) + 'px');
+      $('.info').css('width', (2 * cropsize + 2 * cropmargin + 220) + 'px');
     });
   //-->
   </script>
@@ -193,18 +201,18 @@
   <center>
   <div id="container"> 
     <br />
-    <div id="info">
-      <h1>Lens decentering test</h1>
+    <div class="info">
+      <h1>Lens decentering test (corner-crops method)</h1>
       <br />
       <br />
       <h2>1. Choose a subject</h2>
-      To avoid alignment issue, choose a static subject that is relatively far away (at least ~100m),<br />but not too far to limit the influence of atmospheric effects.<br />
-      You should perform this test in bright daylight.<br />
+      To avoid alignment issue, choose a static subject that reasonably far away (I recommend at least 100m),<br />but not too far to limit the influence of atmospheric effects. Something like trees or buildings in the distance will do fine.<br />
+      You should perform this test in bright daylight and make sure that there is no heat haze or similar distortions due to temperature gradients.<br />
       <br />
-      <h2>2. Adjust settings</h2>      
+      <h2>2. Adjust settings</h2>
       Select the max. available aperture of the lens (smallest f-number).<br />
-      ISO should be near the base value to limit the amount of noise in the result.<br />
-      Make sure the shutter speed is sufficiently fast for handheld shooting (<= 1/500s) or use a tripod.<br />
+      ISO should be as low as possible to limit the amount of noise in the result.<br />
+      Make sure the shutter speed is sufficiently fast for handheld shooting (1/500s or higher) or use a tripod.<br />
       Set the white balance to a fixed preset (e.g. daylight).<br />
       Lock the auto exposure e.g. by switching the camera to manual mode (M) or using the AEL button.<br />
       <i>Optional:</i> For best results, use the mechanical shutter and disable IBIS.<br />
@@ -230,11 +238,11 @@
         <div class="textbox" style="top: 145px; left: 245px">photo 4</div>
       </div><br />
       <br />
-      <h2>5. Load the photos</h2>
+      <h2>5. Compare the photos</h2>
       Load all 4 photos by dropping them into the appropriate frame below.<br />
       You can move each crop (visible portion of the photo) to align the subject.<br />
       If the subject looks about the same in terms of sharpness on all 4 crops, then your lens is probably fine.<br />
-      If one crop is clearly blurrier than the others, then your lens is most likely decentered (lens element tilt).<br />
+      If one crop is visibly blurrier than the others, then your lens is possibly decentered (lens element tilt).<br />
       If all crops are blurry, repeat the test with the <i>alternative</i> focus method or with the aperture stopped down by a full f-stop.<br />
       <br />
     </div>
@@ -262,8 +270,39 @@
       </div>
       <div class="fileinfo" id="fileinfo4"></div>
     </div>
+    <div class="clearboth"><br /><br /><hr /><br /><br /></div>
+    <div class="info">
+      <h1>Lens decentering test (upside-down method)</h1>
+      <br />
+      <br />
+      Sometimes it is not sufficient to only check the corners of the image frame. Therefore, you should also perform the 'upside-down' method as described below.<br />
+      Steps <b>1</b> to <b>3</b> are equivalent to the method above.<br />
+      <br />
+      <h2>4. Take the photos</h2>
+      Place the subject at the left edge of the image frame and take a photo.<br />
+      Then flip the camera upside-down (rotate by 180° around the image axis) and take another photo while maintaining the same framing of the scene.<br />
+      You should now have two almost identical photos of the scene.<br />
+      <br />
+      <h2>5. Compare the photos</h2>
+      Load both photos by dropping them into the appropriate frame below.<br />
+      By default a crop of the left edge will be displayed. You can move each crop around to align them.<br />
+      If the subject looks about the same in terms of sharpness in both crops, then your lens is most likely fine.<br />
+      If one crop is visibly blurrier than the other, then your lens is possibly decentered.<br />
+      <br />
+    </div>
+    <div class="clearboth">
+      <div class="fileinfo" id="fileinfo5"></div>
+      <div class="cropframe cropframerect" id="cropframe5">
+        <div class="bgtext" id="fileselecttext5">drop photo 1 here (normal orientation)</div>
+        <input type="file" name="file" class="filedropzone" id="fileselect5" accept=".jpg" onchange="processFiles(5);" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active');" />
+      </div>
+      <div class="cropframe cropframerect" id="cropframe6">
+        <div class="bgtext" id="fileselecttext6">drop photo 2 here (upside-down)</div>
+        <input type="file" name="file" class="filedropzone" id="fileselect6" accept=".jpg" onchange="processFiles(6);" ondragover="$(this).attr('drop-active', true);" ondragleave="$(this).removeAttr('drop-active');" ondrop="$(this).removeAttr('drop-active');" />
+      </div>
+      <div class="fileinfo" id="fileinfo6"></div>
+    </div>
     <div class="clearboth"><br /><br /><br /></div>
-    
   </div>
   </center>
 </body>
