@@ -29,6 +29,8 @@
     .noselect { -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -o-user-select: none; user-select: none; }
     .imageframe { position: relative; margin: auto; width: 300px; height: 200px; border: 2px #606060 solid; background-color: #f4f4f4 }
     .textbox { position: absolute; height: 50px; width: 50px; border: 2px #606060 dashed; background-color: #fffcf4; text-align: center; line-height: 50px; font-size: 10px }
+    .link { cursor: pointer }
+    .link:hover { text-decoration: underline }
   </style>
   <script type="text/javascript" src="jquery-3.4.1.min.js"></script>  <!-- include jQuery library -->
   <script type="text/javascript" src="exif.js"></script>      <!-- include exif-js library (https://github.com/exif-js/exif-js) -->
@@ -45,7 +47,6 @@
     const cropsizelong    = 800;              // long side for the rectangular crops, in pixel
     const cropmargin      = 10;               // margin between the crops, in pixel
     const rotate          = false;            // rotate inverted images by 180°
-    const rightedge       = false;            // show the right edge by default for the upside-down method
     
     
     // --- globals (state and constants) ---
@@ -108,10 +109,7 @@
         x = -(img.width - cropsize);
         y = -(img.height - cropsize);    // lower right corner
       } else if (img.id == 5 || img.id == 6) {
-        y = -(img.height / 2 - cropsize / 2);   // edge crop
-        if (rightedge) {
-          x = -(img.width - cropsizelong);
-        }
+        y = -(img.height / 2 - cropsizelong / 2);   // edge crop
       }
       $('#cropframe' + img.id).css('border-color', '#fff');
       $('#cropframe' + img.id).html('<img src="' + img.src + '" title="' + img.title + '" id="img' + img.id + '" class="crop noselect" style="top: ' + y + 'px; left: ' + x + 'px" onmousedown="moveBegin(this)" onmousemove="moveImage(this)" onmouseup="moveEnd()" onmouseout="moveEnd()" />');
@@ -171,6 +169,30 @@
         $('#' + img.id).css('top', y);
         $('#' + img.id).css('left', x);
       }
+    }
+    
+    function alignFrame(edge) {
+      width  = $('#img5').width();
+      height = $('#img5').height();
+      if (width == 0) return;
+      x = 0;
+      y = -(height / 2 - cropsizelong / 2);
+      if (edge == 1) {
+        // align right
+        x = -(width - cropsize);
+      } else if (edge == 2) {
+        // align top
+        x = -(width / 2 - cropsize / 2)
+        y = 0;
+      } else if (edge == 3) {
+        // align bottom
+        x = -(width / 2 - cropsize / 2)
+        y = -(height - cropsizelong);
+      }
+      $('#img5').css('top', y);
+      $('#img5').css('left', x);
+      $('#img6').css('top', y);
+      $('#img6').css('left', x);
     }
     
     // register global event listeners to prevent accidental drag select and drag&drop
@@ -288,6 +310,8 @@
       By default a crop of the left edge will be displayed. You can move each crop around to align them.<br />
       If the subject looks about the same in terms of sharpness in both crops, then your lens is most likely fine.<br />
       If one crop is visibly blurrier than the other, then your lens is possibly decentered.<br />
+      <br />
+      Align edge: <span class="link" onclick="alignFrame(0)">left</span>, <span class="link" onclick="alignFrame(1)">right</span>, <span class="link" onclick="alignFrame(2)">top</span>, <span class="link" onclick="alignFrame(3)">bottom</span><br />
       <br />
     </div>
     <div class="clearboth">
