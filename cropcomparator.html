@@ -186,8 +186,8 @@
         output.push(make);
       }
       // the lens name is apparently stored as 'undefined'
-      if (img.exif.undefined !== undefined)       { output.push(img.exif.undefined.replace(/[^\x20-\xFF]/g, '').replace('|', ' ')); }  // remove invalid chars
-      if (img.exif.PixelXDimension !== undefined) { output.push(img.exif.PixelXDimension + "x" + img.exif.PixelYDimension); }
+      if (img.exif.hasOwnProperty('undefined') && (typeof img.exif.undefined === 'string')) { output.push(img.exif.undefined.replace(/[^\x20-\xFF]/g, '').replace('|', ' ')); }  // remove invalid chars
+      if (img.exif.hasOwnProperty('PixelXDimension')) { output.push(img.exif.PixelXDimension + "x" + img.exif.PixelYDimension); }
       return output.join(" | ");
     }
     
